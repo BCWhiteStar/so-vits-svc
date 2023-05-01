@@ -85,16 +85,14 @@ def run(rank, n_gpus, hps):
         hps.train.segment_size // hps.data.hop_length,
         **hps.model).cuda(rank)
     net_d = MultiPeriodDiscriminator(hps.model.use_spectral_norm).cuda(rank)
-    optim_g = torch.optim.AdamW(
-        net_g.parameters(),
-        hps.train.learning_rate,
-        betas=hps.train.betas,
-        eps=hps.train.eps)
-    optim_d = torch.optim.AdamW(
-        net_d.parameters(),
-        hps.train.learning_rate,
-        betas=hps.train.betas,
-        eps=hps.train.eps)
+    optim_g = torch.optim.AdamW([{"params": net_g.parameters(), "initial_lr": hps.train.learning_rate}],
+                                hps.train.learning_rate,
+                                betas=hps.train.betas,
+                                eps=hps.train.eps)
+    optim_d = torch.optim.AdamW([{"params": net_d.parameters(), "initial_lr": hps.train.learning_rate}],
+                                hps.train.learning_rate,
+                                betas=hps.train.betas,
+                                eps=hps.train.eps)
     net_g = DDP(net_g, device_ids=[rank])  # , find_unused_parameters=True)
     net_d = DDP(net_d, device_ids=[rank])
 
