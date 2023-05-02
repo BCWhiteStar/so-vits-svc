@@ -1,0 +1,14 @@
+"n_speakers": 10
+
+"spk":{
+    "Stetmann": 0,
+    "Raynor": 1,
+    "Swann": 2,
+    "Dehaka": 3,
+    "Mengsk": 4,
+    "Horner": 5,
+    "Valerian": 6,
+    "Tychus": 7,
+    "Tosh": 8,
+    "Vermillion": 9
+}
