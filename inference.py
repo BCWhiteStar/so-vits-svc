@@ -16,6 +16,8 @@ for model in os.listdir("logs/44k"):
         os.system(str)
 
 for wav in os.listdir("results"):
-    if ".wav" in wav:
+    if ".flac" in wav:
         audio, _ = torchaudio.load(os.path.join("results", wav))
         writer.add_audio("iter:{}".format(wav.split('G')[1].split('_')[1]),audio, 0)
+
+writer.close()
