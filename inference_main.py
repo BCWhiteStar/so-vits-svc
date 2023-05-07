@@ -16,7 +16,6 @@ logging.getLogger('numba').setLevel(logging.WARNING)
 chunks_dict = infer_tool.read_temp("inference/chunks_temp.json")
 
 
-
 def main():
     import argparse
 
@@ -68,7 +67,6 @@ def main():
     parser.add_argument('-ft', '--f0_filter_threshold', type=float, default=0.05,
                         help='F0 Filtering threshold: This parameter is valid only when f0_mean_pooling is enabled. Values range from 0 to 1. Reducing this value reduces the probability of being out of tune, but increases matte.')
 
-
     args = parser.parse_args()
 
     clean_names = args.clean_names
@@ -87,8 +85,9 @@ def main():
     enhance = args.enhance
     enhancer_adaptive_key = args.enhancer_adaptive_key
     cr_threshold = args.f0_filter_threshold
+    model_name = args.model_path.split('.')[0].split('/')[-1]
 
-    svc_model = Svc(args.model_path, args.config_path, args.device, args.cluster_model_path,enhance)
+    svc_model = Svc(args.model_path, args.config_path, args.device, args.cluster_model_path, enhance)
     infer_tool.mkdir(["raw", "results"])
 
     infer_tool.fill_a_to_b(trans, clean_names)
@@ -100,18 +99,18 @@ def main():
         wav_path = Path(raw_audio_path).with_suffix('.wav')
         chunks = slicer.cut(wav_path, db_thresh=slice_db)
         audio_data, audio_sr = slicer.chunks2audio(wav_path, chunks)
-        per_size = int(clip*audio_sr)
-        lg_size = int(lg*audio_sr)
-        lg_size_r = int(lg_size*lgr)
-        lg_size_c_l = (lg_size-lg_size_r)//2
-        lg_size_c_r = lg_size-lg_size_r-lg_size_c_l
-        lg = np.linspace(0,1,lg_size_r) if lg_size!=0 else 0
+        per_size = int(clip * audio_sr)
+        lg_size = int(lg * audio_sr)
+        lg_size_r = int(lg_size * lgr)
+        lg_size_c_l = (lg_size - lg_size_r) // 2
+        lg_size_c_r = lg_size - lg_size_r - lg_size_c_l
+        lg = np.linspace(0, 1, lg_size_r) if lg_size != 0 else 0
 
         for spk in spk_list:
             audio = []
             for (slice_tag, data) in audio_data:
                 print(f'#=====segment start, {round(len(data) / audio_sr, 3)}s======')
-                
+
                 length = int(np.ceil(len(data) / audio_sr * svc_model.target_sample))
                 if slice_tag:
                     print('jump empty segment')
@@ -119,12 +118,12 @@ def main():
                     audio.extend(list(infer_tool.pad_array(_audio, length)))
                     continue
                 if per_size != 0:
-                    datas = infer_tool.split_list_by_n(data, per_size,lg_size)
+                    datas = infer_tool.split_list_by_n(data, per_size, lg_size)
                 else:
                     datas = [data]
-                for k,dat in enumerate(datas):
-                    per_length = int(np.ceil(len(dat) / audio_sr * svc_model.target_sample)) if clip!=0 else length
-                    if clip!=0: print(f'###=====segment clip start, {round(len(dat) / audio_sr, 3)}s======')
+                for k, dat in enumerate(datas):
+                    per_length = int(np.ceil(len(dat) / audio_sr * svc_model.target_sample)) if clip != 0 else length
+                    if clip != 0: print(f'###=====segment clip start, {round(len(dat) / audio_sr, 3)}s======')
                     # padd
                     pad_len = int(audio_sr * pad_seconds)
                     dat = np.concatenate([np.zeros([pad_len]), dat, np.zeros([pad_len])])
@@ -135,27 +134,28 @@ def main():
                                                         cluster_infer_ratio=cluster_infer_ratio,
                                                         auto_predict_f0=auto_predict_f0,
                                                         noice_scale=noice_scale,
-                                                        F0_mean_pooling = F0_mean_pooling,
-                                                        enhancer_adaptive_key = enhancer_adaptive_key,
-                                                        cr_threshold = cr_threshold
+                                                        F0_mean_pooling=F0_mean_pooling,
+                                                        enhancer_adaptive_key=enhancer_adaptive_key,
+                                                        cr_threshold=cr_threshold
                                                         )
                     _audio = out_audio.cpu().numpy()
                     pad_len = int(svc_model.target_sample * pad_seconds)
                     _audio = _audio[pad_len:-pad_len]
                     _audio = infer_tool.pad_array(_audio, per_length)
-                    if lg_size!=0 and k!=0:
-                        lg1 = audio[-(lg_size_r+lg_size_c_r):-lg_size_c_r] if lgr != 1 else audio[-lg_size:]
-                        lg2 = _audio[lg_size_c_l:lg_size_c_l+lg_size_r]  if lgr != 1 else _audio[0:lg_size]
-                        lg_pre = lg1*(1-lg)+lg2*lg
-                        audio = audio[0:-(lg_size_r+lg_size_c_r)] if lgr != 1 else audio[0:-lg_size]
+                    if lg_size != 0 and k != 0:
+                        lg1 = audio[-(lg_size_r + lg_size_c_r):-lg_size_c_r] if lgr != 1 else audio[-lg_size:]
+                        lg2 = _audio[lg_size_c_l:lg_size_c_l + lg_size_r] if lgr != 1 else _audio[0:lg_size]
+                        lg_pre = lg1 * (1 - lg) + lg2 * lg
+                        audio = audio[0:-(lg_size_r + lg_size_c_r)] if lgr != 1 else audio[0:-lg_size]
                         audio.extend(lg_pre)
-                        _audio = _audio[lg_size_c_l+lg_size_r:] if lgr != 1 else _audio[lg_size:]
+                        _audio = _audio[lg_size_c_l + lg_size_r:] if lgr != 1 else _audio[lg_size:]
                     audio.extend(list(_audio))
             key = "auto" if auto_predict_f0 else f"{tran}key"
             cluster_name = "" if cluster_infer_ratio == 0 else f"_{cluster_infer_ratio}"
-            res_path = f'./results/{clean_name}_{key}_{spk}{cluster_name}.{wav_format}'
+            res_path = f'./results/{clean_name}_{model_name}_{key}_{spk}{cluster_name}.{wav_format}'
             soundfile.write(res_path, audio, svc_model.target_sample, format=wav_format)
             svc_model.clear_empty()
-            
+
+
 if __name__ == '__main__':
     main()
